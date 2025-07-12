@@ -12,7 +12,7 @@ namespace Core
         }
         catch (const std::exception& Exception)
         {
-            DEBUG_ERROR(Exception.what());
+            PRINT_ERROR(Exception.what());
             return false;
         }
 

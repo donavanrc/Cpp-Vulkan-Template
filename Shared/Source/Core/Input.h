@@ -10,6 +10,7 @@ struct MousePosition
 class Input
 {
 public:
+    static void SetMode(int Mode, int Value);
     static bool IsKeyDown(int Key);
     static bool IsKeyUp(int Key);
     static bool IsMouseDown(int MouseButton);

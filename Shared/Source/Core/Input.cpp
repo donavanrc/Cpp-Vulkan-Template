@@ -1,6 +1,12 @@
 #include "Input.h"
 #include "Platform/Window.h"
 
+void Input::SetMode(int Mode, int Value)
+{
+    auto* Window = Platform::Window::GetInstance()->GetWindowHandle();
+    glfwSetInputMode(Window, Mode, Value);
+}
+
 bool Input::IsKeyDown(int Key)
 {
     auto* Window = Platform::Window::GetInstance()->GetWindowHandle();

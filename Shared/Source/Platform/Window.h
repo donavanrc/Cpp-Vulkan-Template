@@ -10,7 +10,6 @@ namespace Platform
     public:
         static Window* GetInstance() { return sm_Instance; }
 
-        Window() = default;
         Window(const WindowDesc& Desc);
         void Initialize();
         void Destroy();

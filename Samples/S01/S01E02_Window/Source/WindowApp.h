@@ -16,5 +16,5 @@ public:
 
 private:
     bool m_Running = false;
-    Platform::Window m_Window;
+    std::unique_ptr<Platform::Window> m_Window;
 };

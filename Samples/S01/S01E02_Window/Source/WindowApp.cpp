@@ -6,16 +6,15 @@ void WindowApp::Initialize()
     WindowDesc.Title = "WindowApp";
     WindowDesc.Width = 800;
     WindowDesc.Height = 600;
-    WindowDesc.Fullscreen = true;
 
-    m_Window = Platform::Window(WindowDesc);
-    m_Window.SetEventHandler(this);
-    m_Window.Initialize();
+    m_Window = std::unique_ptr<Platform::Window>(new Platform::Window(WindowDesc));
+    m_Window->SetEventHandler(this);
+    m_Window->Initialize();
 }
 
 void WindowApp::Destroy()
 {
-    m_Window.Destroy();
+    m_Window->Destroy();
 }
 
 void WindowApp::Run()
@@ -24,8 +23,6 @@ void WindowApp::Run()
 
     while (m_Running)
     {
-        m_Window.ProcessEvents();
-
         if (Input::IsKeyDown(GLFW_KEY_ESCAPE))
         {
             m_Running = false;
@@ -33,11 +30,16 @@ void WindowApp::Run()
 
         if (Input::IsKeyDown(GLFW_KEY_F11))
         {
-            m_Window.SetFullscreen(!m_Window.IsFullscreen());
+            m_Window->SetFullscreen(!m_Window->IsFullscreen());
         }
+
+        auto Position = Input::GetMousePosition();
+        DEBUG_INFO("MouseX=%f MouseY=%f", Position.X, Position.Y);
+
+        m_Window->ProcessEvents();
     }
 
-    DEBUG_LOG("Goodbye!");
+    DEBUG_DISPLAY("Goodbye!");
 }
 
 void WindowApp::OnWindowClose()
@@ -47,7 +49,7 @@ void WindowApp::OnWindowClose()
 
 void WindowApp::OnWindowResize(uint32_t Width, uint32_t Height)
 {
-    DEBUG_INFO("Window resized (%d:%d)", Width, Height);
+    DEBUG_DISPLAY("Window resized (%d:%d)", Width, Height);
 };
 
 START_APPLICATION(WindowApp);

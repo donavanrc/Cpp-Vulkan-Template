@@ -12,10 +12,7 @@ namespace Platform
         glfwSetErrorCallback(
             [](int Error, const char* Description) { DEBUG_ERROR("%d: %s", Error, Description); });
 
-        if (!glfwInit())
-        {
-            throw std::runtime_error("Failed initialize window");
-        }
+        CHECK(glfwInit(), "Failed to initialize window");
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
@@ -29,10 +26,7 @@ namespace Platform
         m_WindowHandle =
             glfwCreateWindow(m_Desc.Width, m_Desc.Height, m_Desc.Title.c_str(), nullptr, nullptr);
 
-        if (!m_WindowHandle)
-        {
-            throw std::runtime_error("Failed create window");
-        }
+        CHECK(m_WindowHandle, "Failed to create window");
 
         DEBUG_DISPLAY(
             "Window created \"%s\" (%d:%d)", m_Desc.Title.c_str(), m_Desc.Width, m_Desc.Height);
