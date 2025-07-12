@@ -58,12 +58,11 @@ namespace Utility
         Utility::Printf("\n(%s:%d)", __FILE__, __LINE__); \
         Utility::Print("\033[0m\n");                      \
     }
-#define DEBUG_INFO(...)                                   \
-    {                                                     \
-        Utility::Print("\033[094m[INFO] ");               \
-        Utility::Printf(__VA_ARGS__);                     \
-        Utility::Printf("\n(%s:%d)", __FILE__, __LINE__); \
-        Utility::Print("\033[0m\n");                      \
+#define DEBUG_INFO(...)                     \
+    {                                       \
+        Utility::Print("\033[094m[INFO] "); \
+        Utility::Printf(__VA_ARGS__);       \
+        Utility::Print("\033[0m\n");        \
     }
 #define DEBUG_LOG(...)                \
     {                                 \

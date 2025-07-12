@@ -1,21 +1,16 @@
 #pragma once
 #include "pch.h"
+#include "WindowDefinitions.h"
+#include "WindowEventHandler.h"
 
 namespace Platform
 {
-    struct WindowDesc
-    {
-        std::string Title;
-        uint32_t Width;
-        uint32_t Height;
-        bool Fullscreen = false;
-    };
-
     class Window
     {
     public:
         static Window* GetInstance() { return sm_Instance; }
 
+        Window() = default;
         Window(const WindowDesc& Desc);
         void Initialize();
         void Destroy();
@@ -23,6 +18,7 @@ namespace Platform
         bool WantsExit();
         bool IsFullscreen() const { return m_Fullscreen; }
         void SetFullscreen(bool Fullscreen);
+        void SetEventHandler(WindowEventHandler* EventHandler) { m_EventHandler = EventHandler; }
         GLFWwindow* GetWindowHandle() const { return m_WindowHandle; }
         WindowDesc GetDesc() const { return m_Desc; }
 
@@ -32,5 +28,9 @@ namespace Platform
         GLFWwindow* m_WindowHandle;
         WindowDesc m_Desc;
         bool m_Fullscreen;
+        WindowEventHandler* m_EventHandler;
     };
+
+    typedef void (*WindowCloseFunc)(Platform::Window* Window);
+    typedef void (*WindowResizeFunc)(Platform::Window* Window, uint32_t Width, uint32_t Height);
 }  // namespace Platform

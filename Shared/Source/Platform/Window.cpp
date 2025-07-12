@@ -23,6 +23,7 @@ namespace Platform
 
     void Window::Initialize()
     {
+        DEBUG_ASSERT(m_EventHandler);
         DEBUG_ASSERT(m_WindowHandle == nullptr);
 
         m_WindowHandle =
@@ -39,6 +40,24 @@ namespace Platform
         glfwFocusWindow(m_WindowHandle);
 
         SetFullscreen(m_Desc.Fullscreen);
+
+        glfwSetWindowUserPointer(m_WindowHandle, m_EventHandler);
+
+        glfwSetWindowCloseCallback(m_WindowHandle,
+            [](GLFWwindow* Window)
+            {
+                auto EventHandler =
+                    static_cast<WindowEventHandler*>(glfwGetWindowUserPointer(Window));
+                EventHandler->OnWindowClose();
+            });
+
+        glfwSetFramebufferSizeCallback(m_WindowHandle,
+            [](GLFWwindow* Window, int Width, int Height)
+            {
+                auto EventHandler =
+                    static_cast<WindowEventHandler*>(glfwGetWindowUserPointer(Window));
+                EventHandler->OnWindowResize(Width, Height);
+            });
 
         glfwShowWindow(m_WindowHandle);
     }
