@@ -3,9 +3,12 @@
 
 namespace Utility
 {
-    inline void Print(const char *Message) { std::cout << Message; }
+    inline void Print(const char* Message)
+    {
+        std::cout << Message;
+    }
 
-    inline void Printf(const char *Format, ...)
+    inline void Printf(const char* Format, ...)
     {
         char Buffer[256];
         va_list Ap;
@@ -15,10 +18,13 @@ namespace Utility
         Print(Buffer);
     }
 
-    inline void PrintLn(const char *Message) { std::cout << Message << '\n'; }
+    inline void PrintLn(const char* Message)
+    {
+        std::cout << Message << '\n';
+    }
 
     inline void Printf() {}
-};
+};  // namespace Utility
 
 #ifdef _DEBUG
 #define DEBUG_ASSERT(Condition, ...)                    \
@@ -80,4 +86,4 @@ namespace Utility
 #define DEBUG_INFO(...)
 #define DEBUG_LOG(...)
 #define DEBUG_WARNING(...)
-#endif // _DEBUG
+#endif  // _DEBUG
