@@ -1,8 +1,11 @@
 #pragma once
 #include <chrono>
 #include <cstdarg>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 

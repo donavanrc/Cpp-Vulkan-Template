@@ -14,7 +14,7 @@ MACRO(CreateExecutableProject ProjectName)
     set(RESOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Resources)
 
     if(EXISTS ${RESOURCE_DIR})
-        file(COPY ${RESOURCE_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Resources)
+        file(COPY ${RESOURCE_DIR} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
     endif()
 
 ENDMACRO()

@@ -35,6 +35,27 @@ namespace Core
         {
             return "";
         };
+
+        inline std::string LoadFile(const char* Filename)
+        {
+            std::ifstream File;
+            std::stringstream Stream;
+
+            File.exceptions(std::ifstream::badbit | std::ifstream::failbit);
+
+            try
+            {
+                File.open(Filename);
+                Stream << File.rdbuf();
+                File.close();
+            }
+            catch (const std::exception& e)
+            {
+                throw std::runtime_error(Utility::Format("Failed to load file at %s", Filename));
+            }
+
+            return Stream.str();
+        }
     }  // namespace Utility
 }  // namespace Core
 
