@@ -1,1 +1,0 @@
-CreateExecutableProject(S01E02_Window)

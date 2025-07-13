@@ -10,10 +10,6 @@ void WindowApp::Initialize()
     m_Window = std::unique_ptr<Platform::Window>(new Platform::Window(WindowDesc));
     m_Window->SetEventHandler(this);
     m_Window->Initialize();
-
-    auto Filename = std::filesystem::current_path() / "../Resources/Data/data.txt";
-    auto Data = Core::Utility::LoadFile(Filename.string().c_str());
-    DEBUG_LOG("%s", Data.c_str());
 }
 
 void WindowApp::Destroy()
