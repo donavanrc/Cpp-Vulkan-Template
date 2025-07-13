@@ -101,4 +101,12 @@ namespace Platform
             glfwSetWindowPos(m_WindowHandle, PositionX, PositionY);
         }
     }
+
+    void Window::SetTitle(const std::string& Title)
+    {
+        DEBUG_ASSERT(m_WindowHandle);
+        m_Title = Title;
+        glfwSetWindowTitle(m_WindowHandle, m_Title.c_str());
+    }
+
 }  // namespace Platform

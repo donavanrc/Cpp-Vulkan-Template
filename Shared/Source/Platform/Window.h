@@ -20,6 +20,8 @@ namespace Platform
         void SetEventHandler(WindowEventHandler* EventHandler) { m_EventHandler = EventHandler; }
         GLFWwindow* GetWindowHandle() const { return m_WindowHandle; }
         WindowDesc GetDesc() const { return m_Desc; }
+        std::string GetTitle() const { return m_Title; }
+        void SetTitle(const std::string& Title);
 
     private:
         static Window* sm_Instance;
@@ -28,6 +30,7 @@ namespace Platform
         WindowDesc m_Desc;
         bool m_Fullscreen;
         WindowEventHandler* m_EventHandler;
+        std::string m_Title;
     };
 
     typedef void (*WindowCloseFunc)(Platform::Window* Window);
