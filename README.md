@@ -25,7 +25,15 @@ cd build
 cmake .. -G "Visual Studio 17 2022" -A x64
 ```
 
-## Run project
+## Build project (Linux)
+
+```bash
+mkdir build
+cd build
+cmake ..
+```
+
+## Build project
 
 ```bash
 cmake --build build
