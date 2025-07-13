@@ -80,25 +80,75 @@ namespace Platform
         return glfwWindowShouldClose(m_WindowHandle);
     }
 
+    inline GLFWmonitor* GetCurrentMonitor(GLFWwindow* window)
+    {
+        int SelectedOverlap = 0;
+        GLFWmonitor* SelectedMonitor = nullptr;
+
+        int WindowX, WindowY, WindowWidth, WindowHeight;
+        glfwGetWindowPos(window, &WindowX, &WindowY);
+        glfwGetWindowSize(window, &WindowWidth, &WindowHeight);
+
+        int MonitorCount;
+        GLFWmonitor** Monitors;
+        Monitors = glfwGetMonitors(&MonitorCount);
+
+        for (uint32_t Index = 0; Index < MonitorCount; ++Index)
+        {
+            auto Monitor = Monitors[Index];
+            const GLFWvidmode* mode = glfwGetVideoMode(Monitor);
+
+            int MonitorX, MonitorY;
+            glfwGetMonitorPos(Monitor, &MonitorX, &MonitorY);
+
+            int ModeWidth = mode->width;
+            int ModeHeight = mode->height;
+
+            int Overlap = std::max(0, std::min(WindowX + WindowWidth, MonitorX + ModeWidth) -
+                                          std::max(WindowX, MonitorX)) *
+                          std::max(0, std::min(WindowY + WindowHeight, MonitorY + ModeHeight) -
+                                          std::max(WindowY, MonitorY));
+
+            if (SelectedOverlap < Overlap)
+            {
+                SelectedOverlap = Overlap;
+                SelectedMonitor = Monitor;
+            }
+        }
+
+        return SelectedMonitor;
+    }
+
     void Window::SetFullscreen(bool Fullscreen)
     {
         DEBUG_ASSERT(m_WindowHandle);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
         m_Fullscreen = Fullscreen;
 
-        auto Monitor = glfwGetPrimaryMonitor();
+        glfwSetWindowAttrib(m_WindowHandle, GLFW_DECORATED, m_Fullscreen ? GLFW_FALSE : GLFW_TRUE);
 
-        glfwSetWindowMonitor(m_WindowHandle, m_Fullscreen ? Monitor : nullptr, 0, 0, m_Desc.Width,
-            m_Desc.Height, GLFW_DONT_CARE);
+        GLFWmonitor* Monitor = GetCurrentMonitor(m_WindowHandle);
 
-        if (!m_Fullscreen)
+        if (Monitor == nullptr)
         {
-            auto* Mode = glfwGetVideoMode(Monitor);
-            int PositionX = (Mode->width - m_Desc.Width) / 2;
-            int PositionY = (Mode->height - m_Desc.Height) / 2;
-            glfwSetWindowPos(m_WindowHandle, PositionX, PositionY);
+            Monitor = glfwGetPrimaryMonitor();
+        }
+
+        const GLFWvidmode* Mode = glfwGetVideoMode(Monitor);
+
+        if (m_Fullscreen)
+        {
+            glfwSetWindowSize(m_WindowHandle, Mode->width, Mode->height);
+            glfwSetWindowPos(m_WindowHandle, 0, 0);
+        }
+        else
+        {
+            glfwSetWindowSize(m_WindowHandle, m_Desc.Width, m_Desc.Height);
+            int posX = (Mode->width - m_Desc.Width) / 2;
+            int posY = (Mode->height - m_Desc.Height) / 2;
+            glfwSetWindowPos(m_WindowHandle, posX, posY);
         }
     }
 

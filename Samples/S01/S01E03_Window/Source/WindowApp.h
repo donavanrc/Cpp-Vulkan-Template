@@ -13,7 +13,7 @@ public:
     void Run() override;
     void CalculateFrameStats();
 
-    void OnWindowClose();
+    void OnWindowClose() override;
     void OnWindowResize(uint32_t Width, uint32_t Height) override;
 
 private:
