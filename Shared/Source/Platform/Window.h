@@ -32,7 +32,4 @@ namespace Platform
         WindowEventHandler* m_EventHandler;
         std::string m_Title;
     };
-
-    typedef void (*WindowCloseFunc)(Platform::Window* Window);
-    typedef void (*WindowResizeFunc)(Platform::Window* Window, uint32_t Width, uint32_t Height);
 }  // namespace Platform
