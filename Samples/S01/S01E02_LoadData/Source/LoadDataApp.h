@@ -1,7 +1,7 @@
 #pragma once
 #include "Core/Application.h"
 
-class LoadDataApp : public Core::Application
+class LoadDataApp : public IApplication
 {
 public:
     void Initialize() override;

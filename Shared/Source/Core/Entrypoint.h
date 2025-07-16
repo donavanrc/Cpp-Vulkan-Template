@@ -1,15 +1,12 @@
 #pragma once
 #include "pch.h"
-#include "Application.h"
+#include "IApplication.h"
 
-namespace Core
-{
-    bool StartApplication(Application& App);
-}
+bool StartApplication(IApplication& App);
 
-#define START_APPLICATION(AppClass)                                       \
-    int main()                                                            \
-    {                                                                     \
-        AppClass App;                                                     \
-        return Core::StartApplication(App) ? EXIT_SUCCESS : EXIT_FAILURE; \
+#define START_APPLICATION(AppClass)                                 \
+    int main()                                                      \
+    {                                                               \
+        AppClass App;                                               \
+        return StartApplication(App) ? EXIT_SUCCESS : EXIT_FAILURE; \
     }

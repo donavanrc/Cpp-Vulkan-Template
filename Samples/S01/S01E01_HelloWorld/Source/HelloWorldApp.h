@@ -2,7 +2,7 @@
 #include "pch.h"
 #include "Core/Entrypoint.h"
 
-class HelloWorldApp : public Core::Application
+class HelloWorldApp : public IApplication
 {
 public:
     void Initialize() override;
