@@ -4,7 +4,7 @@ bool StartApplication(IApplication& App)
 {
     try
     {
-        App.Initialize();
+        App.Init();
         App.Destroy();
     }
     catch (const std::exception& Exception)

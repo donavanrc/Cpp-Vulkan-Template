@@ -5,6 +5,6 @@
 class VulkanApplication : public Application
 {
 public:
-    virtual void Initialize() override;
+    virtual void Init() override;
     virtual void Destroy() override;
 };

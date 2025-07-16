@@ -1,6 +1,6 @@
 #include "HelloWorldApp.h"
 
-void HelloWorldApp::Initialize()
+void HelloWorldApp::Init()
 {
     DEBUG_INFO("App initialized");
 
@@ -11,10 +11,7 @@ void HelloWorldApp::Initialize()
     DEBUG_WARNING("%s", "Warning message.");
     DEBUG_ASSERT(false, "Assertion error.");
 };
-void HelloWorldApp::Run()
-{
-    DEBUG_INFO("App running...");
-};
+
 void HelloWorldApp::Destroy()
 {
     DEBUG_INFO("App destroyed");

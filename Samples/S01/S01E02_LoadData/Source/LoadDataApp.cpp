@@ -1,7 +1,7 @@
 #include "LoadDataApp.h"
 #include "Core/Entrypoint.h"
 
-void LoadDataApp::Initialize()
+void LoadDataApp::Init()
 {
     auto Filename = std::filesystem::current_path() / "../Resources/Data/data.txt";
     auto Data = Utility::LoadFile(Filename.string().c_str());

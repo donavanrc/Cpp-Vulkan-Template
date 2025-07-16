@@ -1,12 +1,12 @@
 #include "Application.h"
 
 Application::Application(
-    const std::string& WindowTitle, uint32_t WindowWidth, uint32_t WindowHeight)
+    const std::string& WindowTitle, uint32_t WindowWidth, uint32_t WindowHeight, bool Fullscreen)
     : m_WindowTitle(WindowTitle),
       m_WindowWidth(WindowWidth),
       m_WindowHeight(WindowHeight),
+      m_Fullscreen(Fullscreen),
       m_WindowHandle(nullptr),
-      m_Running(false),
       m_ElapsedTime(0.0f),
       m_FrameCount(0)
 {
@@ -16,16 +16,21 @@ Application::Application(
     CHECK(glfwInit(), "Failed to initialize window.");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 }
 
-void Application::Initialize()
+void Application::Init()
 {
-    InitializeWindow();
-    InitializeGraphics();
-    RunMainLoop();
+    InitWindow();
+    RunLoop();
 };
 
-void Application::InitializeWindow()
+void Application::Close()
+{
+    glfwSetWindowShouldClose(m_WindowHandle, GLFW_TRUE);
+}
+
+void Application::InitWindow()
 {
     m_WindowHandle =
         glfwCreateWindow(m_WindowWidth, m_WindowHeight, m_WindowTitle.c_str(), nullptr, nullptr);
@@ -33,6 +38,15 @@ void Application::InitializeWindow()
     CHECK(m_WindowHandle != nullptr, "Failed to create window.");
 
     SetupWindowEvents();
+
+    if (m_Fullscreen)
+    {
+        InternalSetFullscreen(true);
+    }
+
+    glfwFocusWindow(m_WindowHandle);
+
+    OnInit();
 }
 
 void Application::SetupWindowEvents()
@@ -98,23 +112,20 @@ void Application::SetupWindowEvents()
         });
 }
 
-void Application::RunMainLoop()
+void Application::RunLoop()
 {
     DEBUG_ASSERT(m_WindowHandle != nullptr);
-    DEBUG_ASSERT(!m_Running);
-
-    m_Running = true;
 
     m_Timer.Reset();
 
-    while (m_Running)
+    while (!glfwWindowShouldClose(m_WindowHandle))
     {
         glfwPollEvents();
 
         m_Timer.Tick();
         CalculateFrameStats();
 
-        Tick(m_Timer.GetDeltaTime());
+        OnUpdate(m_Timer.GetDeltaTime());
     }
 }
 
@@ -123,8 +134,10 @@ void Application::Destroy()
     if (m_WindowHandle != nullptr)
     {
         glfwDestroyWindow(m_WindowHandle);
-        m_WindowHandle = false;
+        m_WindowHandle = nullptr;
     }
+
+    OnDestroy();
 };
 
 void Application::CalculateFrameStats()
@@ -139,17 +152,86 @@ void Application::CalculateFrameStats()
         std::string WindowTitle = Utility::Format(
             "%s | Rate: %u fps, Time: %.2f ms", m_WindowTitle.c_str(), m_FrameCount, FrameTime);
 
-        SetWindowTitle(WindowTitle.c_str());
+        glfwSetWindowTitle(m_WindowHandle, WindowTitle.c_str());
 
         m_FrameCount = 0;
         m_ElapsedTime = 0;
     }
 }
 
-void Application::SetWindowTitle(const std::string& WindowTitle)
+inline GLFWmonitor* GetCurrentMonitor(GLFWwindow* window)
 {
-    DEBUG_ASSERT(m_WindowHandle != nullptr);
+    int SelectedOverlap = 0;
+    GLFWmonitor* SelectedMonitor = nullptr;
 
-    m_WindowTitle = WindowTitle;
-    glfwSetWindowTitle(m_WindowHandle, m_WindowTitle.c_str());
+    int WindowX, WindowY, WindowWidth, WindowHeight;
+    glfwGetWindowPos(window, &WindowX, &WindowY);
+    glfwGetWindowSize(window, &WindowWidth, &WindowHeight);
+
+    int MonitorCount;
+    GLFWmonitor** Monitors;
+    Monitors = glfwGetMonitors(&MonitorCount);
+
+    for (uint32_t Index = 0; Index < MonitorCount; ++Index)
+    {
+        auto Monitor = Monitors[Index];
+        const GLFWvidmode* mode = glfwGetVideoMode(Monitor);
+
+        int MonitorX, MonitorY;
+        glfwGetMonitorPos(Monitor, &MonitorX, &MonitorY);
+
+        int ModeWidth = mode->width;
+        int ModeHeight = mode->height;
+
+        int Overlap = std::max(0, std::min(WindowX + WindowWidth, MonitorX + ModeWidth) -
+                                      std::max(WindowX, MonitorX)) *
+                      std::max(0, std::min(WindowY + WindowHeight, MonitorY + ModeHeight) -
+                                      std::max(WindowY, MonitorY));
+
+        if (SelectedOverlap < Overlap)
+        {
+            SelectedOverlap = Overlap;
+            SelectedMonitor = Monitor;
+        }
+    }
+
+    return SelectedMonitor;
+}
+
+void Application::InternalSetFullscreen(bool Fullscreen)
+{
+    DEBUG_ASSERT(m_WindowHandle);
+
+    glfwSetWindowAttrib(m_WindowHandle, GLFW_DECORATED, Fullscreen ? GLFW_FALSE : GLFW_TRUE);
+
+    GLFWmonitor* Monitor = GetCurrentMonitor(m_WindowHandle);
+
+    if (Monitor == nullptr)
+    {
+        Monitor = glfwGetPrimaryMonitor();
+    }
+
+    const GLFWvidmode* Mode = glfwGetVideoMode(Monitor);
+
+    if (m_Fullscreen)
+    {
+        glfwSetWindowSize(m_WindowHandle, Mode->width, Mode->height);
+        glfwSetWindowPos(m_WindowHandle, 0, 0);
+    }
+    else
+    {
+        int PositionX = (Mode->width - m_WindowWidth) / 2;
+        int PositionY = (Mode->height - m_WindowHeight) / 2;
+        glfwSetWindowSize(m_WindowHandle, m_WindowWidth, m_WindowHeight);
+        glfwSetWindowPos(m_WindowHandle, PositionX, PositionY);
+    }
+}
+
+void Application::SetFullscreen(bool Fullscreen)
+{
+    Sleep(300);
+
+    m_Fullscreen = Fullscreen;
+
+    InternalSetFullscreen(m_Fullscreen);
 }

@@ -5,7 +5,6 @@
 class HelloWorldApp : public IApplication
 {
 public:
-    void Initialize() override;
-    void Run() override;
+    void Init() override;
     void Destroy() override;
 };

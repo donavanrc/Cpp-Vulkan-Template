@@ -6,21 +6,33 @@
 class Application : public IApplication
 {
 public:
-    Application(const std::string& WindowTitle, uint32_t WindowWidth, uint32_t WindowHeight);
+    Application(const std::string& WindowTitle, uint32_t WindowWidth, uint32_t WindowHeight,
+        bool Resizable = false);
     ~Application() = default;
-    virtual void Initialize() override;
+    void Close();
+    virtual void Init() override;
     virtual void Destroy() override;
 
 private:
-    void InitializeWindow();
+    void InitWindow();
     void CalculateFrameStats();
     void SetupWindowEvents();
-    void RunMainLoop();
+    void RunLoop();
+
+    void InternalSetFullscreen(bool Fullscreen);
 
 protected:
-    virtual void InitializeGraphics() = 0;
-    virtual void Tick(float DeltaTime) = 0;
-    void SetWindowTitle(const std::string& Title);
+    bool IsFullscreen() { return m_Fullscreen; }
+    void SetFullscreen(bool Fullscreen);
+
+    void Sleep(uint32_t Milliseconds)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(Milliseconds));
+    };
+
+    virtual void OnInit() = 0;
+    virtual void OnDestroy() = 0;
+    virtual void OnUpdate(float DeltaTime) = 0;
 
     virtual void OnKeyDown(int KeyCode) {};
     virtual void OnKeyUp(int KeyCode) {};
@@ -31,11 +43,11 @@ protected:
     virtual void OnWindowClose() {};
     virtual void OnWindowResize(uint32_t Width, uint32_t Height) {};
 
-    bool m_Running;
     std::string m_WindowTitle;
     uint32_t m_WindowWidth;
     uint32_t m_WindowHeight;
     GLFWwindow* m_WindowHandle;
+    bool m_Fullscreen;
     Timer m_Timer;
     float m_ElapsedTime;
     uint32_t m_FrameCount;

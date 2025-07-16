@@ -4,7 +4,6 @@
 class LoadDataApp : public IApplication
 {
 public:
-    void Initialize() override;
+    void Init() override;
     void Destroy() override {};
-    void Run() override {};
 };
