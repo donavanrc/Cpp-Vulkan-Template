@@ -1,1 +1,1 @@
-External data
+This is a external data loaded from txt file

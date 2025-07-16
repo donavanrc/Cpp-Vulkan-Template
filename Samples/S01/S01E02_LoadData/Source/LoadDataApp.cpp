@@ -4,8 +4,8 @@
 void LoadDataApp::Initialize()
 {
     auto Filename = std::filesystem::current_path() / "../Resources/Data/data.txt";
-    auto Data = Core::Utility::LoadFile(Filename.string().c_str());
-    DEBUG_LOG("%s", Data.c_str());
+    auto Data = Utility::LoadFile(Filename.string().c_str());
+    DEBUG_DISPLAY("%s", Data.c_str());
 }
 
 START_APPLICATION(LoadDataApp);

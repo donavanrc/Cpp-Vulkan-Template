@@ -1,21 +1,17 @@
 #include "Entrypoint.h"
 
-namespace Core
+bool StartApplication(IApplication& App)
 {
-    bool StartApplication(Application& App)
+    try
     {
-        try
-        {
-            App.Initialize();
-            App.Run();
-            App.Destroy();
-        }
-        catch (const std::exception& Exception)
-        {
-            PRINT_ERROR(Exception.what());
-            return false;
-        }
-
-        return true;
+        App.Initialize();
+        App.Destroy();
     }
-}  // namespace Core
+    catch (const std::exception& Exception)
+    {
+        PRINT_ERROR(Exception.what());
+        return false;
+    }
+
+    return true;
+}
