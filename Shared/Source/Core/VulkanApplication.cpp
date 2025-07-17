@@ -63,12 +63,14 @@ void VulkanApplication::CreateInstance()
     VkInstanceCreateInfo InstanceInfo = {};
     InstanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     InstanceInfo.pApplicationInfo = &AppInfo;
-    auto InstanceExtensions = GetInstanceExtensions();
-    InstanceInfo.enabledExtensionCount = InstanceExtensions.size();
-    InstanceInfo.ppEnabledExtensionNames = InstanceExtensions.data();
-    auto InstanceLayers = GetValidationLayers();
-    InstanceInfo.enabledLayerCount = InstanceLayers.size();
-    InstanceInfo.ppEnabledLayerNames = InstanceLayers.data();
+
+    auto Extensions = GetInstanceExtensions();
+    InstanceInfo.enabledExtensionCount = Extensions.size();
+    InstanceInfo.ppEnabledExtensionNames = Extensions.size() > 0 ? Extensions.data() : nullptr;
+
+    auto Layers = GetValidationLayers();
+    InstanceInfo.enabledLayerCount = Layers.size();
+    InstanceInfo.ppEnabledLayerNames = Layers.size() > 0 ? Layers.data() : nullptr;
 
     VULKAN_RESULT(vkCreateInstance(&InstanceInfo, nullptr, &m_Instance));
 
