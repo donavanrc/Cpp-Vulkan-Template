@@ -7,4 +7,5 @@ class HelloWorldApp : public IApplication
 public:
     void Init() override;
     void Destroy() override;
+    void Run() override;
 };

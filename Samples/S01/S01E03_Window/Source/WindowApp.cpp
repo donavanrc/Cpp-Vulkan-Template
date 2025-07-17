@@ -1,7 +1,7 @@
 #include "WindowApp.h"
 #include "Core/Entrypoint.h"
 
-WindowApp::WindowApp() : Application("S01E03 Window", 800, 600, true) {}
+WindowApp::WindowApp() : Application({"S01E03 Window", 800, 600}) {}
 
 void WindowApp::OnInit()
 {
@@ -22,15 +22,6 @@ void WindowApp::OnUpdate(float DeltaTime)
 void WindowApp::OnKeyDown(int KeyCode)
 {
     DEBUG_DISPLAY("OnKeyDown(%i)", KeyCode);
-
-    if (KeyCode == GLFW_KEY_ESCAPE)
-    {
-        Close();
-    }
-    else if (KeyCode == GLFW_KEY_F11)
-    {
-        SetFullscreen(!IsFullscreen());
-    }
 }
 
 void WindowApp::OnKeyUp(int KeyCode)

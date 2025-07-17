@@ -17,4 +17,9 @@ void HelloWorldApp::Destroy()
     DEBUG_INFO("App destroyed");
 };
 
+void HelloWorldApp::Run()
+{
+    DEBUG_INFO("App running...");
+};
+
 START_APPLICATION(HelloWorldApp);

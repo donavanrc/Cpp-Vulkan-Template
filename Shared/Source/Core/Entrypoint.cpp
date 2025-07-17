@@ -5,6 +5,7 @@ bool StartApplication(IApplication& App)
     try
     {
         App.Init();
+        App.Run();
         App.Destroy();
     }
     catch (const std::exception& Exception)

@@ -3,25 +3,30 @@
 #include "Timer.h"
 #include "pch.h"
 
+struct ApplicationInfo
+{
+    std::string WindowTitle;
+    uint32_t WindowWidth;
+    uint32_t WindowHeight;
+    bool Fullscreen = false;
+    uint32_t ApiVersion = VK_API_VERSION_1_2;
+};
+
 class Application : public IApplication
 {
 public:
-    Application(const std::string& WindowTitle, uint32_t WindowWidth, uint32_t WindowHeight,
-        bool Resizable = false);
+    Application(const ApplicationInfo& Info);
     ~Application() = default;
     void Close();
     virtual void Init() override;
     virtual void Destroy() override;
+    virtual void Run() override;
 
-private:
+protected:
     void InitWindow();
     void CalculateFrameStats();
     void SetupWindowEvents();
-    void RunLoop();
-
     void InternalSetFullscreen(bool Fullscreen);
-
-protected:
     bool IsFullscreen() { return m_Fullscreen; }
     void SetFullscreen(bool Fullscreen);
 
@@ -43,12 +48,10 @@ protected:
     virtual void OnWindowClose() {};
     virtual void OnWindowResize(uint32_t Width, uint32_t Height) {};
 
-    std::string m_WindowTitle;
-    uint32_t m_WindowWidth;
-    uint32_t m_WindowHeight;
+    ApplicationInfo m_Info;
     GLFWwindow* m_WindowHandle;
-    bool m_Fullscreen;
     Timer m_Timer;
     float m_ElapsedTime;
     uint32_t m_FrameCount;
+    bool m_Fullscreen;
 };

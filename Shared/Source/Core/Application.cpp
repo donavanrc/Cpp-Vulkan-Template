@@ -1,11 +1,8 @@
 #include "Application.h"
 
-Application::Application(
-    const std::string& WindowTitle, uint32_t WindowWidth, uint32_t WindowHeight, bool Fullscreen)
-    : m_WindowTitle(WindowTitle),
-      m_WindowWidth(WindowWidth),
-      m_WindowHeight(WindowHeight),
-      m_Fullscreen(Fullscreen),
+Application::Application(const ApplicationInfo& Info)
+    : m_Info(Info),
+      m_Fullscreen(Info.Fullscreen),
       m_WindowHandle(nullptr),
       m_ElapsedTime(0.0f),
       m_FrameCount(0)
@@ -22,18 +19,12 @@ Application::Application(
 void Application::Init()
 {
     InitWindow();
-    RunLoop();
 };
-
-void Application::Close()
-{
-    glfwSetWindowShouldClose(m_WindowHandle, GLFW_TRUE);
-}
 
 void Application::InitWindow()
 {
-    m_WindowHandle =
-        glfwCreateWindow(m_WindowWidth, m_WindowHeight, m_WindowTitle.c_str(), nullptr, nullptr);
+    m_WindowHandle = glfwCreateWindow(
+        m_Info.WindowWidth, m_Info.WindowHeight, m_Info.WindowTitle.c_str(), nullptr, nullptr);
 
     CHECK(m_WindowHandle != nullptr, "Failed to create window.");
 
@@ -45,8 +36,6 @@ void Application::InitWindow()
     }
 
     glfwFocusWindow(m_WindowHandle);
-
-    OnInit();
 }
 
 void Application::SetupWindowEvents()
@@ -74,6 +63,15 @@ void Application::SetupWindowEvents()
 
             if (Action == GLFW_PRESS)
             {
+                if (Key == GLFW_KEY_ESCAPE)
+                {
+                    App->Close();
+                }
+                else if (Key == GLFW_KEY_F11)
+                {
+                    App->SetFullscreen(!App->IsFullscreen());
+                }
+
                 App->OnKeyDown(Key);
             }
             else if (Action == GLFW_RELEASE)
@@ -112,9 +110,11 @@ void Application::SetupWindowEvents()
         });
 }
 
-void Application::RunLoop()
+void Application::Run()
 {
     DEBUG_ASSERT(m_WindowHandle != nullptr);
+
+    OnInit();
 
     m_Timer.Reset();
 
@@ -127,6 +127,13 @@ void Application::RunLoop()
 
         OnUpdate(m_Timer.GetDeltaTime());
     }
+
+    OnDestroy();
+}
+
+void Application::Close()
+{
+    glfwSetWindowShouldClose(m_WindowHandle, GLFW_TRUE);
 }
 
 void Application::Destroy()
@@ -136,8 +143,6 @@ void Application::Destroy()
         glfwDestroyWindow(m_WindowHandle);
         m_WindowHandle = nullptr;
     }
-
-    OnDestroy();
 };
 
 void Application::CalculateFrameStats()
@@ -149,8 +154,8 @@ void Application::CalculateFrameStats()
     {
         float FrameTime = 1000.0f / m_FrameCount;
 
-        std::string WindowTitle = Utility::Format(
-            "%s | Rate: %u fps, Time: %.2f ms", m_WindowTitle.c_str(), m_FrameCount, FrameTime);
+        std::string WindowTitle = Utility::Format("%s | Rate: %u fps, Time: %.2f ms",
+            m_Info.WindowTitle.c_str(), m_FrameCount, FrameTime);
 
         glfwSetWindowTitle(m_WindowHandle, WindowTitle.c_str());
 
@@ -220,9 +225,9 @@ void Application::InternalSetFullscreen(bool Fullscreen)
     }
     else
     {
-        int PositionX = (Mode->width - m_WindowWidth) / 2;
-        int PositionY = (Mode->height - m_WindowHeight) / 2;
-        glfwSetWindowSize(m_WindowHandle, m_WindowWidth, m_WindowHeight);
+        int PositionX = (Mode->width - m_Info.WindowWidth) / 2;
+        int PositionY = (Mode->height - m_Info.WindowHeight) / 2;
+        glfwSetWindowSize(m_WindowHandle, m_Info.WindowWidth, m_Info.WindowHeight);
         glfwSetWindowPos(m_WindowHandle, PositionX, PositionY);
     }
 }
