@@ -4,7 +4,7 @@
 
 struct VulkanQueue
 {
-    VkQueue Queue;
+    VkQueue Handle;
     uint32_t FamilyIndex;
 };
 
@@ -23,6 +23,7 @@ protected:
     void DestroyDebugMessenger();
     void SelectPhysicalDevice();
     void CreateDevice();
+    VulkanQueue CreateQueue(uint32_t FamilyIndex);
 
     static VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MessageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT MessageType,

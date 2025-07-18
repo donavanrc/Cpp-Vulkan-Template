@@ -141,6 +141,22 @@ void VulkanApplication::DestroyDebugMessenger()
     }
 }
 
+inline std::string GetDeviceTypeDescription(VkPhysicalDeviceType DeviceType)
+{
+    switch (DeviceType)
+    {
+    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+        return "Discrete";
+    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+        return "Integrated";
+    case VK_PHYSICAL_DEVICE_TYPE_CPU:
+        return "Cpu";
+    }
+
+    DEBUG_ASSERT(false, "Invalid device type");
+    return "";
+}
+
 void VulkanApplication::SelectPhysicalDevice()
 {
     DEBUG_ASSERT(m_Instance != VK_NULL_HANDLE);
@@ -193,7 +209,7 @@ void VulkanApplication::SelectPhysicalDevice()
     vkGetPhysicalDeviceProperties(m_PhysicalDevice, &Properties);
 
     DEBUG_DISPLAY("Selected device: %s", Properties.deviceName);
-    DEBUG_DISPLAY("Device type: %d", Properties.deviceType);
+    DEBUG_DISPLAY("Device type: %s", GetDeviceTypeDescription(Properties.deviceType).c_str());
     DEBUG_DISPLAY("Device API version: %d.%d.%d", VK_API_VERSION_MAJOR(Properties.apiVersion),
         VK_API_VERSION_MINOR(Properties.apiVersion), VK_API_VERSION_PATCH(Properties.apiVersion));
 }
@@ -307,7 +323,13 @@ void VulkanApplication::CreateDevice()
 
     if (GraphicsQueueFamilyIndex != UINT32_MAX)
     {
-        m_GraphicsQueue.FamilyIndex = GraphicsQueueFamilyIndex;
-        vkGetDeviceQueue(m_Device, GraphicsQueueFamilyIndex, 0, &m_GraphicsQueue.Queue);
+        m_GraphicsQueue = CreateQueue(GraphicsQueueFamilyIndex);
     }
+}
+
+VulkanQueue VulkanApplication::CreateQueue(uint32_t FamilyIndex)
+{
+    VulkanQueue Queue{.FamilyIndex = FamilyIndex};
+    vkGetDeviceQueue(m_Device, Queue.FamilyIndex, 0, &Queue.Handle);
+    return Queue;
 }
