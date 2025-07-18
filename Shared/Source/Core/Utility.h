@@ -18,6 +18,8 @@ namespace Utility
         Print(Buffer);
     }
 
+    inline void Printf() {};
+
     inline std::string Format(const char* format, ...)
     {
         va_list args;

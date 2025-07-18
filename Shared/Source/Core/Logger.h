@@ -37,10 +37,15 @@ private:
 };
 
 #ifdef _DEBUG
-#define DEBUG_ASSERT(Condition, ...) \
-    if (!(Condition))                \
-    {                                \
-        DEBUG_FATAL(##__VA_ARGS__);  \
+#define DEBUG_ASSERT(Condition, ...)                      \
+    if (!(bool)(Condition))                               \
+    {                                                     \
+        Utility::Print("\033[31m[ASSERTION_ERROR] ");     \
+        Utility::Printf("%s is false\n", #Condition);     \
+        Utility::Printf(##__VA_ARGS__);                   \
+        Utility::Printf("\n(%s:%d)", __FILE__, __LINE__); \
+        Utility::Print("\033[0m\n");                      \
+        std::abort();                                     \
     }
 
 #define DEBUG_LOG(...) Logger::Log(SeverityLevel::LOG, Utility::Format(##__VA_ARGS__))
@@ -58,6 +63,7 @@ private:
 #define DEBUG_FATAL(...) \
     Logger::Fatal(SeverityLevel::FATAL, Utility::Format(##__VA_ARGS__), __FILE__, __LINE__)
 #else
+#define DEBUG_ASSERT(Condition, ...)
 #define DEBUG_LOG(...)
 #define DEBUG_DISPLAY(...)
 #define DEBUG_INFO(...)
