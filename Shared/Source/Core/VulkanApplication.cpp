@@ -6,7 +6,10 @@ VulkanApplication::VulkanApplication(const ApplicationInfo& Info)
     : Application(Info),
       m_Instance(VK_NULL_HANDLE),
       m_DebugMessenger(VK_NULL_HANDLE),
-      m_Device(VK_NULL_HANDLE)
+      m_Device(VK_NULL_HANDLE),
+      m_Surface(VK_NULL_HANDLE),
+      m_SwapChain(VK_NULL_HANDLE),
+      m_RenderPass(VK_NULL_HANDLE)
 {
 }
 
@@ -19,19 +22,14 @@ void VulkanApplication::Init()
 
 void VulkanApplication::Destroy()
 {
-    if (m_Device)
-    {
-        vkDestroyDevice(m_Device, nullptr);
-        m_Device = VK_NULL_HANDLE;
-    }
-
+    DestroyFrameBuffers();
+    DestroyRenderPass();
+    DestroyBackBuffers();
+    DestroySwapChain();
+    DestroySurface();
+    DestroyDevice();
     DestroyDebugMessenger();
-
-    if (m_Instance)
-    {
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
-    }
+    DestroyInstance();
 
     Application::Destroy();
 };
@@ -42,6 +40,13 @@ void VulkanApplication::InitGraphics()
     CreateDebugMessenger();
     SelectPhysicalDevice();
     CreateDevice();
+    CreateSurface();
+    SetupPresentQueue();
+    CreateSwapChain(
+        VK_FORMAT_B8G8R8A8_SRGB, m_Info.WindowWidth, m_Info.WindowHeight, NUM_BACK_BUFFERS);
+    CreateBackBuffers(VK_FORMAT_B8G8R8A8_SRGB, m_Info.WindowWidth, m_Info.WindowHeight);
+    CreateRenderPass(m_BackBuffers[0]);
+    CreateFrameBuffers();
 }
 
 inline std::vector<const char*> GetValidationLayers()
@@ -90,6 +95,15 @@ void VulkanApplication::CreateInstance()
 
     DEBUG_DISPLAY("Target API version: %d.%d.%d", VK_API_VERSION_MAJOR(ApiVersion),
         VK_API_VERSION_MINOR(ApiVersion), VK_API_VERSION_PATCH(ApiVersion));
+}
+
+void VulkanApplication::DestroyInstance()
+{
+    if (m_Instance)
+    {
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+    }
 }
 
 VkBool32 VKAPI_CALL VulkanApplication::DebugCallback(
@@ -327,9 +341,320 @@ void VulkanApplication::CreateDevice()
     }
 }
 
+void VulkanApplication::DestroyDevice()
+{
+    if (m_Device)
+    {
+        vkDestroyDevice(m_Device, nullptr);
+        m_Device = VK_NULL_HANDLE;
+    }
+}
+
 VulkanQueue VulkanApplication::CreateQueue(uint32_t FamilyIndex)
 {
     VulkanQueue Queue{.FamilyIndex = FamilyIndex};
     vkGetDeviceQueue(m_Device, Queue.FamilyIndex, 0, &Queue.Handle);
     return Queue;
+}
+
+void VulkanApplication::CreateSurface()
+{
+    DEBUG_ASSERT(m_WindowHandle);
+    DEBUG_ASSERT(m_Instance);
+
+    VULKAN_RESULT(glfwCreateWindowSurface(m_Instance, m_WindowHandle, nullptr, &m_Surface));
+}
+
+void VulkanApplication::DestroySurface()
+{
+    if (m_Surface)
+    {
+        vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
+        m_Surface = VK_NULL_HANDLE;
+    }
+}
+
+void VulkanApplication::SetupPresentQueue()
+{
+    if (m_PresentQueue.Handle == VK_NULL_HANDLE)
+    {
+        VkBool32 PresentSupported;
+        VULKAN_RESULT(vkGetPhysicalDeviceSurfaceSupportKHR(
+            m_PhysicalDevice, m_GraphicsQueue.FamilyIndex, m_Surface, &PresentSupported));
+
+        if (PresentSupported)
+        {
+            m_PresentQueue = m_GraphicsQueue;
+        }
+
+        CHECK(m_PresentQueue.Handle, "No compatible present queue found");
+    }
+}
+
+VkPresentModeKHR VulkanApplication::GetPresentMode()
+{
+    uint32_t PresentModeCount = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        m_PhysicalDevice, m_Surface, &PresentModeCount, nullptr);
+
+    CHECK(PresentModeCount, "No present modes found");
+
+    std::vector<VkPresentModeKHR> PresentModes(PresentModeCount);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(
+        m_PhysicalDevice, m_Surface, &PresentModeCount, PresentModes.data());
+
+    VkPresentModeKHR PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+
+    for (auto& CurrentPresentMode : PresentModes)
+    {
+        if (CurrentPresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+        {
+            PresentMode = CurrentPresentMode;
+            break;
+        }
+
+        if (CurrentPresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+        {
+            PresentMode = CurrentPresentMode;
+        }
+    }
+
+    return PresentMode;
+}
+
+VkSurfaceFormatKHR VulkanApplication::GetSurfaceFormat(VkFormat Format)
+{
+    uint32_t SurfaceFormatCount = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(m_PhysicalDevice, m_Surface, &SurfaceFormatCount, nullptr);
+
+    CHECK(SurfaceFormatCount, "No surface format found");
+
+    std::vector<VkSurfaceFormatKHR> SurfaceFormats(SurfaceFormatCount);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(
+        m_PhysicalDevice, m_Surface, &SurfaceFormatCount, SurfaceFormats.data());
+
+    VkSurfaceFormatKHR SurfaceFormat = SurfaceFormats[0];
+
+    for (auto& CurrentSurfaceFormat : SurfaceFormats)
+    {
+        if (CurrentSurfaceFormat.format == Format &&
+            CurrentSurfaceFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        {
+            SurfaceFormat = CurrentSurfaceFormat;
+        }
+    }
+
+    return SurfaceFormat;
+}
+
+VkCompositeAlphaFlagBitsKHR VulkanApplication::GetCompositeAlpha(
+    VkSurfaceCapabilitiesKHR SurfaceCapabilities)
+{
+    VkCompositeAlphaFlagBitsKHR CompositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+    if (SurfaceCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+    {
+        CompositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+    }
+
+    return CompositeAlpha;
+}
+
+VkSurfaceTransformFlagBitsKHR VulkanApplication::GetPreTransform(
+    VkSurfaceCapabilitiesKHR SurfaceCapabilities)
+{
+    VkSurfaceTransformFlagBitsKHR PreTransform;
+    if (SurfaceCapabilities.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR)
+    {
+        PreTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+    }
+    else
+    {
+        PreTransform = SurfaceCapabilities.currentTransform;
+    }
+
+    return PreTransform;
+}
+
+void VulkanApplication::CreateSwapChain(
+    VkFormat Format, uint32_t Width, uint32_t Height, uint32_t NumBackBuffers)
+{
+    DEBUG_ASSERT(m_PhysicalDevice);
+    DEBUG_ASSERT(m_Device);
+    DEBUG_ASSERT(m_Surface);
+
+    VkSurfaceFormatKHR SurfaceFormat = GetSurfaceFormat(Format);
+
+    VkSurfaceCapabilitiesKHR SurfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_PhysicalDevice, m_Surface, &SurfaceCapabilities);
+
+    VkSwapchainCreateInfoKHR SwapChainInfo = {};
+    SwapChainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    SwapChainInfo.minImageCount = NumBackBuffers;
+    SwapChainInfo.imageExtent.width = Width;
+    SwapChainInfo.imageExtent.height = Height;
+    SwapChainInfo.imageColorSpace = SurfaceFormat.colorSpace;
+    SwapChainInfo.imageFormat = SurfaceFormat.format;
+    SwapChainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    SwapChainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    SwapChainInfo.imageArrayLayers = 1;
+    SwapChainInfo.compositeAlpha = GetCompositeAlpha(SurfaceCapabilities);
+    SwapChainInfo.presentMode = GetPresentMode();
+    SwapChainInfo.preTransform = GetPreTransform(SurfaceCapabilities);
+    SwapChainInfo.surface = m_Surface;
+    SwapChainInfo.oldSwapchain = VK_NULL_HANDLE;
+    SwapChainInfo.clipped = VK_TRUE;
+
+    VULKAN_RESULT(vkCreateSwapchainKHR(m_Device, &SwapChainInfo, nullptr, &m_SwapChain));
+
+    DEBUG_DISPLAY("SwapChain images: %d", SwapChainInfo.minImageCount);
+    DEBUG_DISPLAY("SwapChain extent: (%d, %d)", SwapChainInfo.imageExtent.width,
+        SwapChainInfo.imageExtent.height);
+}
+
+void VulkanApplication::DestroySwapChain()
+{
+    if (m_SwapChain)
+    {
+        vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
+        m_SwapChain = VK_NULL_HANDLE;
+    }
+}
+
+void VulkanApplication::CreateBackBuffers(VkFormat Format, uint32_t Width, uint32_t Height)
+{
+    uint32_t SwapChainImageCount = 0;
+    vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &SwapChainImageCount, nullptr);
+    std::vector<VkImage> SwapChainImages(SwapChainImageCount);
+    vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &SwapChainImageCount, SwapChainImages.data());
+
+    m_BackBuffers.resize(SwapChainImageCount);
+    for (uint32_t Index = 0; Index < SwapChainImages.size(); ++Index)
+    {
+        m_BackBuffers[Index].Format = Format;
+        m_BackBuffers[Index].Width = Width;
+        m_BackBuffers[Index].Height = Height;
+        m_BackBuffers[Index].ImageView =
+            CreateImageView(VK_IMAGE_VIEW_TYPE_2D, Format, SwapChainImages[Index]);
+    }
+}
+
+void VulkanApplication::DestroyBackBuffers()
+{
+    for (auto& BackBuffer : m_BackBuffers)
+    {
+        vkDestroyImageView(m_Device, BackBuffer.ImageView, nullptr);
+        BackBuffer.ImageView = VK_NULL_HANDLE;
+    }
+}
+
+VkImageView VulkanApplication::CreateImageView(VkImageViewType Type, VkFormat Format, VkImage Image)
+{
+    VkImageViewCreateInfo ViewInfo = {};
+    ViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    ViewInfo.viewType = Type;
+    ViewInfo.format = Format;
+    ViewInfo.image = Image;
+    ViewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ViewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ViewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ViewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    ViewInfo.subresourceRange.baseArrayLayer = 0;
+    ViewInfo.subresourceRange.baseMipLevel = 0;
+    ViewInfo.subresourceRange.layerCount = 1;
+    ViewInfo.subresourceRange.levelCount = 1;
+
+    VkImageView ImageView = VK_NULL_HANDLE;
+    VULKAN_RESULT(vkCreateImageView(m_Device, &ViewInfo, nullptr, &ImageView));
+    return ImageView;
+}
+
+void VulkanApplication::CreateRenderPass(VulkanBackBuffer& ColorBuffer)
+{
+    VkAttachmentDescription ColorAttachment = {};
+    ColorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    ColorAttachment.format = ColorBuffer.Format;
+    ColorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    ColorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    ColorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    ColorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    ColorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    ColorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    std::vector<VkAttachmentDescription> Attachments = {ColorAttachment};
+
+    VkAttachmentReference ColorAttachmentRef = {};
+    ColorAttachmentRef.attachment = 0;
+    ColorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription Subpass = {};
+    Subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    Subpass.colorAttachmentCount = 1;
+    Subpass.pColorAttachments = &ColorAttachmentRef;
+
+    VkSubpassDependency Dependency = {};
+    Dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    Dependency.dstSubpass = 0;
+    Dependency.srcStageMask =
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    Dependency.srcAccessMask = 0;
+    Dependency.dstStageMask =
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    Dependency.dstAccessMask =
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo RenderPassInfo = {};
+    RenderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    RenderPassInfo.attachmentCount = Attachments.size();
+    RenderPassInfo.pAttachments = Attachments.data();
+    RenderPassInfo.subpassCount = 1;
+    RenderPassInfo.pSubpasses = &Subpass;
+    RenderPassInfo.dependencyCount = 1;
+    RenderPassInfo.pDependencies = &Dependency;
+
+    VULKAN_RESULT(vkCreateRenderPass(m_Device, &RenderPassInfo, nullptr, &m_RenderPass));
+}
+
+void VulkanApplication::DestroyRenderPass()
+{
+    if (m_RenderPass)
+    {
+        vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
+        m_RenderPass = VK_NULL_HANDLE;
+    }
+}
+
+VkFramebuffer VulkanApplication::CreateFrameBuffer(VulkanBackBuffer& BackBuffer)
+{
+    std::vector<VkImageView> Attachments = {BackBuffer.ImageView};
+
+    VkFramebufferCreateInfo FramebufferInfo = {};
+    FramebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    FramebufferInfo.width = BackBuffer.Width;
+    FramebufferInfo.height = BackBuffer.Height;
+    FramebufferInfo.layers = 1;
+    FramebufferInfo.attachmentCount = static_cast<uint32_t>(Attachments.size());
+    FramebufferInfo.pAttachments = Attachments.data();
+    FramebufferInfo.renderPass = m_RenderPass;
+
+    VkFramebuffer FrameBuffer;
+    VULKAN_RESULT(vkCreateFramebuffer(m_Device, &FramebufferInfo, nullptr, &FrameBuffer));
+    return FrameBuffer;
+}
+
+void VulkanApplication::CreateFrameBuffers()
+{
+    m_FrameBuffers.resize(NUM_BACK_BUFFERS);
+    for (uint32_t Index = 0; Index < m_FrameBuffers.size(); ++Index)
+    {
+        m_FrameBuffers[Index] = CreateFrameBuffer(m_BackBuffers[Index]);
+    }
+}
+
+void VulkanApplication::DestroyFrameBuffers()
+{
+    for (auto& FrameBuffer : m_FrameBuffers)
+    {
+        vkDestroyFramebuffer(m_Device, FrameBuffer, nullptr);
+    }
 }
