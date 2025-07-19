@@ -9,7 +9,11 @@ VulkanApplication::VulkanApplication(const ApplicationInfo& Info)
       m_Device(VK_NULL_HANDLE),
       m_Surface(VK_NULL_HANDLE),
       m_SwapChain(VK_NULL_HANDLE),
-      m_RenderPass(VK_NULL_HANDLE)
+      m_RenderPass(VK_NULL_HANDLE),
+      m_CommandPool(VK_NULL_HANDLE),
+      m_CurrentFrameIndex(-1),
+      m_ImageSemaphoreIndex(-1),
+      m_CommandBufferIndex(-1)
 {
 }
 
@@ -22,7 +26,16 @@ void VulkanApplication::Init()
 
 void VulkanApplication::Destroy()
 {
-    DestroyFrameBuffers();
+    DeviceWaitIdle();
+
+    DestroySyncObjects();
+    DestroyCommandPool();
+
+    for (auto& FrameBuffer : m_FrameBuffers)
+    {
+        DestroyFrameBuffer(FrameBuffer);
+    }
+
     DestroyRenderPass();
     DestroyBackBuffers();
     DestroySwapChain();
@@ -43,10 +56,18 @@ void VulkanApplication::InitGraphics()
     CreateSurface();
     SetupPresentQueue();
     CreateSwapChain(
-        VK_FORMAT_B8G8R8A8_SRGB, m_Info.WindowWidth, m_Info.WindowHeight, NUM_BACK_BUFFERS);
+        VK_FORMAT_B8G8R8A8_SRGB, m_Info.WindowWidth, m_Info.WindowHeight, NUM_BACKBUFFERS);
     CreateBackBuffers(VK_FORMAT_B8G8R8A8_SRGB, m_Info.WindowWidth, m_Info.WindowHeight);
     CreateRenderPass(m_BackBuffers[0]);
-    CreateFrameBuffers();
+
+    m_FrameBuffers.resize(NUM_BACKBUFFERS);
+    for (uint32_t Index = 0; Index < m_FrameBuffers.size(); ++Index)
+    {
+        m_FrameBuffers[Index] = CreateFrameBuffer(m_BackBuffers[Index]);
+    }
+
+    CreateCommandPool();
+    CreateSyncObjects();
 }
 
 inline std::vector<const char*> GetValidationLayers()
@@ -339,6 +360,13 @@ void VulkanApplication::CreateDevice()
     {
         m_GraphicsQueue = CreateQueue(GraphicsQueueFamilyIndex);
     }
+}
+
+void VulkanApplication::DeviceWaitIdle()
+{
+    DEBUG_ASSERT(m_Device);
+
+    vkDeviceWaitIdle(m_Device);
 }
 
 void VulkanApplication::DestroyDevice()
@@ -637,24 +665,247 @@ VkFramebuffer VulkanApplication::CreateFrameBuffer(VulkanBackBuffer& BackBuffer)
     FramebufferInfo.pAttachments = Attachments.data();
     FramebufferInfo.renderPass = m_RenderPass;
 
-    VkFramebuffer FrameBuffer;
+    VkFramebuffer FrameBuffer = VK_NULL_HANDLE;
     VULKAN_RESULT(vkCreateFramebuffer(m_Device, &FramebufferInfo, nullptr, &FrameBuffer));
     return FrameBuffer;
 }
 
-void VulkanApplication::CreateFrameBuffers()
+void VulkanApplication::DestroyFrameBuffer(VkFramebuffer& FrameBuffer)
 {
-    m_FrameBuffers.resize(NUM_BACK_BUFFERS);
-    for (uint32_t Index = 0; Index < m_FrameBuffers.size(); ++Index)
+    if (FrameBuffer)
     {
-        m_FrameBuffers[Index] = CreateFrameBuffer(m_BackBuffers[Index]);
+        vkDestroyFramebuffer(m_Device, FrameBuffer, nullptr);
+        FrameBuffer = VK_NULL_HANDLE;
     }
 }
 
-void VulkanApplication::DestroyFrameBuffers()
+void VulkanApplication::CreateCommandPool()
 {
-    for (auto& FrameBuffer : m_FrameBuffers)
+    VkCommandPoolCreateInfo PoolInfo = {};
+    PoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    PoolInfo.queueFamilyIndex = m_GraphicsQueue.FamilyIndex;
+    PoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    VULKAN_RESULT(vkCreateCommandPool(m_Device, &PoolInfo, nullptr, &m_CommandPool));
+
+    m_CommandBuffers.resize(NUM_BACKBUFFERS);
+
+    for (uint32_t Index = 0; Index < m_CommandBuffers.size(); ++Index)
     {
-        vkDestroyFramebuffer(m_Device, FrameBuffer, nullptr);
+        m_CommandBuffers[Index] = CreateCommandBuffer();
     }
+}
+
+void VulkanApplication::DestroyCommandPool()
+{
+    if (m_CommandPool)
+    {
+        vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
+        m_CommandPool = VK_NULL_HANDLE;
+    }
+}
+
+VkCommandBuffer VulkanApplication::CreateCommandBuffer()
+{
+    VkCommandBufferAllocateInfo AllocateInfo = {};
+    AllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    AllocateInfo.commandPool = m_CommandPool;
+    AllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    AllocateInfo.commandBufferCount = 1;
+
+    VkCommandBuffer CommandBuffer;
+    VULKAN_RESULT(vkAllocateCommandBuffers(m_Device, &AllocateInfo, &CommandBuffer));
+    return CommandBuffer;
+}
+
+VkFence VulkanApplication::CreateFence(bool Signaled)
+{
+    VkFenceCreateInfo FenceInfo = {};
+    FenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    FenceInfo.flags = Signaled ? VK_FENCE_CREATE_SIGNALED_BIT : 0;
+
+    VkFence Fence = VK_NULL_HANDLE;
+    VULKAN_RESULT(vkCreateFence(m_Device, &FenceInfo, nullptr, &Fence));
+    return Fence;
+}
+
+void VulkanApplication::DestroyFence(VkFence& Fence)
+{
+    if (Fence)
+    {
+        vkDestroyFence(m_Device, Fence, nullptr);
+        Fence = VK_NULL_HANDLE;
+    }
+}
+
+VkSemaphore VulkanApplication::CreateSemaphore()
+{
+    VkSemaphoreCreateInfo SemaphoreInfo = {};
+    SemaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkSemaphore Semaphore = VK_NULL_HANDLE;
+    VULKAN_RESULT(vkCreateSemaphore(m_Device, &SemaphoreInfo, nullptr, &Semaphore));
+    return Semaphore;
+}
+
+void VulkanApplication::DestroySemaphore(VkSemaphore& Semaphore)
+{
+    if (Semaphore)
+    {
+        vkDestroySemaphore(m_Device, Semaphore, nullptr);
+        Semaphore = VK_NULL_HANDLE;
+    }
+}
+
+void VulkanApplication::CreateSyncObjects()
+{
+    m_AcquiredImageFences.resize(NUM_BACKBUFFERS);
+    for (uint32_t Index = 0; Index < m_AcquiredImageFences.size(); ++Index)
+    {
+        m_AcquiredImageFences[Index] = CreateFence();
+    }
+
+    m_AcquiredImageSemaphores.resize(NUM_BACKBUFFERS);
+    for (uint32_t Index = 0; Index < m_AcquiredImageSemaphores.size(); ++Index)
+    {
+        m_AcquiredImageSemaphores[Index] = CreateSemaphore();
+    }
+
+    m_RenderingDoneFences.resize(NUM_BACKBUFFERS);
+    for (uint32_t Index = 0; Index < m_RenderingDoneFences.size(); ++Index)
+    {
+        m_RenderingDoneFences[Index] = CreateFence();
+    }
+
+    m_RenderingDoneSemaphores.resize(NUM_BACKBUFFERS);
+    for (uint32_t Index = 0; Index < m_RenderingDoneSemaphores.size(); ++Index)
+    {
+        m_RenderingDoneSemaphores[Index] = CreateSemaphore();
+    }
+}
+
+void VulkanApplication::DestroySyncObjects()
+{
+    for (auto& AcquiredFence : m_AcquiredImageFences)
+    {
+        DestroyFence(AcquiredFence);
+    }
+
+    for (auto& AcquiredSemaphore : m_AcquiredImageSemaphores)
+    {
+        DestroySemaphore(AcquiredSemaphore);
+    }
+
+    for (auto& RenderingDoneFence : m_RenderingDoneFences)
+    {
+        DestroyFence(RenderingDoneFence);
+    }
+
+    for (auto& RenderingDoneSemaphore : m_RenderingDoneSemaphores)
+    {
+        DestroySemaphore(RenderingDoneSemaphore);
+    }
+}
+
+bool VulkanApplication::AcquireImageIndex(uint32_t* OutImageIndex)
+{
+    m_ImageSemaphoreIndex = (m_ImageSemaphoreIndex + 1) % m_AcquiredImageSemaphores.size();
+
+    VkResult Result = vkAcquireNextImageKHR(m_Device, m_SwapChain, UINT32_MAX,
+        m_AcquiredImageSemaphores[m_ImageSemaphoreIndex], nullptr, OutImageIndex);
+
+    if (Result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        return false;
+    }
+
+    CHECK(Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR, "Failed to acquire image");
+
+    m_CurrentFrameIndex = *OutImageIndex;
+
+    return true;
+}
+
+bool VulkanApplication::Present()
+{
+    VkPresentInfoKHR PresentInfo = {};
+    PresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    PresentInfo.pImageIndices = &m_CurrentFrameIndex;
+    PresentInfo.swapchainCount = 1;
+    PresentInfo.pSwapchains = &m_SwapChain;
+    PresentInfo.waitSemaphoreCount = 1;
+    VkSemaphore WaitSemaphores[] = {m_RenderingDoneSemaphores[m_ImageSemaphoreIndex]};
+    PresentInfo.pWaitSemaphores = WaitSemaphores;
+
+    VkResult Result = vkQueuePresentKHR(m_PresentQueue.Handle, &PresentInfo);
+
+    if (Result == VK_ERROR_OUT_OF_DATE_KHR || Result == VK_SUBOPTIMAL_KHR)
+    {
+        return false;
+    }
+
+    CHECK(Result == VK_SUCCESS, "Failed to present image");
+
+    return true;
+}
+
+VkCommandBuffer VulkanApplication::BeginCommandBuffer()
+{
+    m_CommandBufferIndex = (m_CommandBufferIndex + 1) % m_CommandBuffers.size();
+
+    VkCommandBuffer CommandBuffer = m_CommandBuffers[m_CommandBufferIndex];
+
+    VkCommandBufferBeginInfo BeginInfo = {};
+    BeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    vkBeginCommandBuffer(CommandBuffer, &BeginInfo);
+
+    return CommandBuffer;
+}
+
+void VulkanApplication::EndCommandBuffer(VkCommandBuffer& CommandBuffer)
+{
+    vkEndCommandBuffer(CommandBuffer);
+}
+
+void VulkanApplication::Submit(VkCommandBuffer& CommandBuffer)
+{
+    VkSubmitInfo SubmitInfo = {};
+    SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    SubmitInfo.commandBufferCount = 1;
+    SubmitInfo.pCommandBuffers = &CommandBuffer;
+    VkPipelineStageFlags waitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    SubmitInfo.pWaitDstStageMask = &waitStageMask;
+    VkSemaphore WaitSemaphores[] = {m_AcquiredImageSemaphores[m_ImageSemaphoreIndex]};
+    SubmitInfo.waitSemaphoreCount = 1;
+    SubmitInfo.pWaitSemaphores = WaitSemaphores;
+    VkSemaphore SignalSemaphores[] = {m_RenderingDoneSemaphores[m_ImageSemaphoreIndex]};
+    SubmitInfo.signalSemaphoreCount = 1;
+    SubmitInfo.pSignalSemaphores = SignalSemaphores;
+
+    VULKAN_RESULT(vkQueueSubmit(
+        m_GraphicsQueue.Handle, 1, &SubmitInfo, m_RenderingDoneFences[m_ImageSemaphoreIndex]));
+
+    vkWaitForFences(m_Device, 1, &m_RenderingDoneFences[m_ImageSemaphoreIndex], true, UINT32_MAX);
+    vkResetFences(m_Device, 1, &m_RenderingDoneFences[m_ImageSemaphoreIndex]);
+}
+
+void VulkanApplication::BeginRenderPass(VkCommandBuffer& CommandBuffer)
+{
+    VkRenderPassBeginInfo BeginInfo = {};
+    BeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    BeginInfo.clearValueCount = 1;
+    VkClearValue ClearValue = {0.5f, 0.55f, 0.6f, 1.0f};
+    BeginInfo.pClearValues = &ClearValue;
+    BeginInfo.framebuffer = m_FrameBuffers[m_CurrentFrameIndex];
+    BeginInfo.renderArea.offset.x = 0;
+    BeginInfo.renderArea.offset.y = 0;
+    BeginInfo.renderArea.extent.width = m_Info.WindowWidth;
+    BeginInfo.renderArea.extent.height = m_Info.WindowHeight;
+    BeginInfo.renderPass = m_RenderPass;
+    vkCmdBeginRenderPass(CommandBuffer, &BeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void VulkanApplication::EndRenderPass(VkCommandBuffer& CommandBuffer)
+{
+    vkCmdEndRenderPass(CommandBuffer);
 }

@@ -2,7 +2,7 @@
 #include "Application.h"
 #include "pch.h"
 
-#define NUM_BACK_BUFFERS 3
+#define NUM_BACKBUFFERS 3
 
 struct VulkanQueue
 {
@@ -34,6 +34,7 @@ protected:
     void DestroyDebugMessenger();
     void SelectPhysicalDevice();
     void CreateDevice();
+    void DeviceWaitIdle();
     void DestroyDevice();
     VulkanQueue CreateQueue(uint32_t FamilyIndex);
     void CreateSurface();
@@ -52,7 +53,25 @@ protected:
     void DestroyRenderPass();
     VkFramebuffer CreateFrameBuffer(VulkanBackBuffer& BackBuffer);
     void CreateFrameBuffers();
-    void DestroyFrameBuffers();
+    void DestroyFrameBuffer(VkFramebuffer& FrameBuffer);
+    void CreateCommandPool();
+    void DestroyCommandPool();
+    VkCommandBuffer CreateCommandBuffer();
+    void DestroyCommandBuffer();
+    VkFence CreateFence(bool Signaled = false);
+    void DestroyFence(VkFence& Fence);
+    VkSemaphore CreateSemaphore();
+    void DestroySemaphore(VkSemaphore& Semaphore);
+    void CreateSyncObjects();
+    void DestroySyncObjects();
+
+    bool AcquireImageIndex(uint32_t* OutImageIndex);
+    bool Present();
+    VkCommandBuffer BeginCommandBuffer();
+    void EndCommandBuffer(VkCommandBuffer& CommandBuffer);
+    void Submit(VkCommandBuffer& CommandBuffer);
+    void BeginRenderPass(VkCommandBuffer& CommandBuffer);
+    void EndRenderPass(VkCommandBuffer& CommandBuffer);
 
     static VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT MessageSeverity,
         VkDebugUtilsMessageTypeFlagsEXT MessageType,
@@ -69,4 +88,13 @@ protected:
     std::vector<VulkanBackBuffer> m_BackBuffers;
     VkRenderPass m_RenderPass;
     std::vector<VkFramebuffer> m_FrameBuffers;
+    VkCommandPool m_CommandPool;
+    std::vector<VkCommandBuffer> m_CommandBuffers;
+    std::vector<VkFence> m_AcquiredImageFences;
+    std::vector<VkSemaphore> m_AcquiredImageSemaphores;
+    std::vector<VkFence> m_RenderingDoneFences;
+    std::vector<VkSemaphore> m_RenderingDoneSemaphores;
+    uint32_t m_CurrentFrameIndex;
+    uint32_t m_ImageSemaphoreIndex;
+    uint32_t m_CommandBufferIndex;
 };
